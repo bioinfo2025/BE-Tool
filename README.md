@@ -14,7 +14,7 @@ BE-Tool is a comprehensive toolkit for analyzing base editing data, designed spe
 
 ### Home
 
-![Home](com/)
+![Home](/src/com/betool/ui/home.png)
 
 ### 脱靶预测结果
 
