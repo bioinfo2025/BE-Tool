@@ -26,7 +26,7 @@ BE-Tool is a comprehensive toolkit for analyzing base editing data, designed spe
 
 ### BE Lib
 
-![BE Lib](beditor.jpg)
+![BE Lib](BE-Lib.jpg)
 
 ## Document
 
