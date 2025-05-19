@@ -18,7 +18,7 @@ BE-Tool is a comprehensive toolkit for analyzing base editing data, designed spe
 
 ### sgRNA Design
 
-![sgRNA Design](sgDesign2.jpg)
+![sgRNA Design](sgDesign 2.jpg)
 
 ### Base Editor
 
