@@ -14,11 +14,19 @@ BE-Tool is a comprehensive toolkit for analyzing base editing data, designed spe
 
 ### Home
 
-![Home](/src/com/betool/ui/home.png)
+![Home](/src/com/betool/ui/BETool.jpg)
 
-### 脱靶预测结果
+### sgRNA Design
 
-![脱靶分析](img/off_target_prediction.png)
+![sgRNA Design](sgDesign2.jpg)
+
+### Base Editor
+
+![Base Editor](beditor.jpg)
+
+### BE Lib
+
+![BE Lib](beditor.jpg)
 
 ## 文档
 
