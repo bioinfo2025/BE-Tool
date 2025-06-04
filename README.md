@@ -9,7 +9,16 @@ BE-Tool is a comprehensive toolkit for analyzing base editing data, designed spe
 - **sgRNA Design**：sgRNA assisted design module
 - **Base Editor**：Accurately calculate the efficiency of base conversion such as C>T, A>G, etc
 - **BE Lib**：BE Knowledge Base Maintenance and Update
-
+  
+Requirements
+Environment
+Python: 3.9
+Libraries:
+numpy: 1.26.3
+pandas: 2.2.3
+torch: 1.6.3
+torchvision (optional for GPU support)
+tqdm, pickle, argparse
 
 
 ### Home
