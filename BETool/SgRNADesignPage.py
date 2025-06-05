@@ -264,9 +264,11 @@ class SgRNADesignPage(QWidget):
         target_base = self.target_base_edit.text().strip() if editor_type == "Other BE" else ""
         conv_base = self.conv_base_edit.text().strip() if editor_type == "Other BE" else ""
 
+        #根据target_seq生成候补sgRNA
+
         # 校验必填字段
         if not all([target_seq, editor_type, window_start, window_end]):
-            QMessageBox.warning(self, "输入缺失", "请填写所有必填字段")
+            QMessageBox.warning(self, "Missing input", "Please fill in all required fields！！")
             return
 
         # 校验数字字段
@@ -276,7 +278,7 @@ class SgRNADesignPage(QWidget):
             if window_start >= window_end or window_start < 1 or window_end < 1:
                 raise ValueError
         except ValueError:
-            QMessageBox.warning(self, "参数错误", "窗口范围必须为有效整数且Start < End")
+            QMessageBox.warning(self, "Parameter error", "The window range must be a valid integer and Start<End")
             return
 
         # 生成多条模拟数据

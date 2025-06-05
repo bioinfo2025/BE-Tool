@@ -1,0 +1,18 @@
+[
+  {
+    "BE name": "ABE7.10",
+    "start": 4,
+    "end": 8,
+    "target base": "A",
+    "converted base": "G",
+    "be desc": "Adenine Base Editor (ABE) version 7.10 with improved specificity and efficiency. Converts adenine (A) to guanine (G) within a 4-8nt window."
+  },
+  {
+    "BE name": "CBE3",
+    "start": 5,
+    "end": 9,
+    "target base": "C",
+    "converted base": "T",
+    "be desc": "Cytosine Base Editor (CBE) version 3. Converts cytosine (C) to thymine (T) in a 5-9nt window. Requires NGG PAM sequence."
+  }
+]

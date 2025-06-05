@@ -1,11 +1,15 @@
-import random
+import json
 import sys
 import os
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton, QTableWidget, QTableWidgetItem,
-    QFrame, QScrollArea, QSizePolicy, QMessageBox, QTextEdit
+    QApplication, QWidget, QVBoxLayout, QLabel, QFrame, QLineEdit,
+    QComboBox, QPushButton, QMessageBox, QTextEdit, QHBoxLayout, QScrollArea,
+    QMessageBox
 )
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QSize
+
+# 设置matplotlib后端和环境变量
 import matplotlib
 
 matplotlib.use('Agg')
@@ -13,328 +17,425 @@ os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = f"{os.environ['CONDA_PREFIX']}/plugi
 os.environ["DYLD_FRAMEWORK_PATH"] = f"{os.environ['CONDA_PREFIX']}/lib"
 os.environ['PYTORCH_JIT'] = '0'
 
-from PyQt5.QtGui import QFont, QPalette, QColor
-from PyQt5.QtCore import Qt, QSize
+JSON_PATH = "be_data.json"
 
 
 class BELibPage(QWidget):
     def __init__(self):
         super().__init__()
+        self.be_data = []
+        self.load_from_json()
         self.init_ui()
 
     def init_ui(self):
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-        content_widget = QWidget()
-        main_layout = QVBoxLayout(content_widget)
-        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
 
+        # ====================== 上部分：BE信息列表展示 ======================
+        display_frame = QFrame()
+        display_frame.setStyleSheet("""
+            QFrame {
+                background: #fcfcfc;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        display_layout = QVBoxLayout(display_frame)
+        display_layout.setSpacing(5)
+
+        # 标题
+        title_label = QLabel("Existing BE Information")
+        title_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #333;")
+        display_layout.addWidget(title_label)
+
+        # 动态生成BE信息标签
+        self.result_layout = QVBoxLayout()
+        self.result_layout.setSpacing(0)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { border: none; }")
+
+        scroll_content = QWidget()
+        scroll_content.setLayout(self.result_layout)
+        scroll_area.setWidget(scroll_content)
+        scroll_area.setMaximumHeight(200)
+        display_layout.addWidget(scroll_area)
+
+        # 加载初始数据
+        self.update_display()
+
+        # ====================== 下部分：新增BE信息 ======================
         input_frame = QFrame()
-        input_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         input_frame.setStyleSheet("""
             QFrame {
                 background: #fcfcfc;
                 border: 1px solid #ddd;
-                border-radius: 6px;
-                padding: 10px;
+                border-radius: 4px;
+                padding: 8px;
             }
         """)
         input_layout = QVBoxLayout(input_frame)
-        input_layout.setSpacing(8)
+        input_layout.setSpacing(6)
 
         # BE Name输入行
         self.be_name_edit = QLineEdit()
-        self.add_input_row(input_layout, "BE Name:", self.be_name_edit, label_width=130)
+        self.add_input_row(input_layout, "BE Name:", self.be_name_edit, label_width=90)
 
         # 编辑器类型行
         editor_row = QHBoxLayout()
-        editor_row.setSpacing(10)
+        editor_row.setSpacing(8)
 
-        editor_label = QLabel("Editor Type:")
-        editor_label.setStyleSheet("color: #555; border: none;")
-        editor_label.setFixedWidth(110)
-        editor_row.addWidget(editor_label)
+        self.editor_label = QLabel("Editor Type:")
+        self.editor_label.setFixedWidth(90)
+        self.editor_label.setStyleSheet(self.get_label_style())
 
         self.editor_combo = QComboBox()
         self.editor_combo.addItems(["ABE", "CBE", "Other BE"])
-        self.editor_combo.setStyleSheet(self.get_input_style())
-        self.editor_combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.editor_combo.setFixedWidth(140)
         self.editor_combo.currentIndexChanged.connect(self.toggle_other_be)
-        editor_row.addWidget(self.editor_combo)
+        self.editor_combo.setStyleSheet("""
+            QComboBox {
+                border: 1px solid #ddd;
+                border-radius: 2px;
+                padding: 3px 5px;
+                background: #ffffff;
+                color: #333;
+                font-size: 12px;
+            }
+            QComboBox::drop-down {
+                border-left: 1px solid #ddd;
+            }
+            QComboBox QAbstractItemView {
+                selection-background-color: #007bff;
+                selection-color: white;
+                color: #333;
+                border: 1px solid #ddd;
+                background-color: white;
+                padding: 2px;
+                font-size: 12px;
+            }
+        """)
 
-        editor_row.setAlignment(Qt.AlignTop)
-
-        # Target Base
+        # 增加标签宽度避免文字截断
         self.target_base_label = QLabel("Target Base:")
-        self.target_base_label.setStyleSheet("color: #555; border: none;")
         self.target_base_label.setFixedWidth(120)
         self.target_base_label.setHidden(True)
-        editor_row.addWidget(self.target_base_label)
+        self.target_base_label.setStyleSheet(self.get_label_style())
 
         self.target_base_edit = QLineEdit()
-        self.target_base_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.target_base_edit.setHidden(True)
         self.target_base_edit.setStyleSheet(self.get_input_style())
-        editor_row.addWidget(self.target_base_edit)
 
-        # Converted Base
         self.conv_base_label = QLabel("Converted Base:")
-        self.conv_base_label.setStyleSheet("color: #555; border: none;")
         self.conv_base_label.setFixedWidth(140)
         self.conv_base_label.setHidden(True)
-        editor_row.addWidget(self.conv_base_label)
+        self.conv_base_label.setStyleSheet(self.get_label_style())
 
         self.conv_base_edit = QLineEdit()
-        self.conv_base_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.conv_base_edit.setHidden(True)
         self.conv_base_edit.setStyleSheet(self.get_input_style())
+
+        editor_row.addWidget(self.editor_label)
+        editor_row.addWidget(self.editor_combo)
+        editor_row.addWidget(self.target_base_label)
+        editor_row.addWidget(self.target_base_edit)
+        editor_row.addWidget(self.conv_base_label)
         editor_row.addWidget(self.conv_base_edit)
 
         input_layout.addLayout(editor_row)
 
         # 窗口起始和结束
         window_row = QHBoxLayout()
-        window_row.setSpacing(10)
+        window_row.setSpacing(8)
 
         self.window_start_label = QLabel("Window Start:")
-        self.window_start_label.setStyleSheet("color: #555; border: none;")
-        self.window_start_label.setFixedWidth(110)
-        window_row.addWidget(self.window_start_label)
+        self.window_start_label.setFixedWidth(90)
+        self.window_start_label.setStyleSheet(self.get_label_style())
 
         self.window_start_edit = QLineEdit()
-        self.window_start_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.window_start_edit.setStyleSheet(self.get_input_style())
-        window_row.addWidget(self.window_start_edit)
 
         self.window_end_label = QLabel("Window End:")
-        self.window_end_label.setStyleSheet("color: #555; border: none;")
-        self.window_end_label.setFixedWidth(110)
-        window_row.addWidget(self.window_end_label)
+        self.window_end_label.setFixedWidth(90)
+        self.window_end_label.setStyleSheet(self.get_label_style())
 
         self.window_end_edit = QLineEdit()
-        self.window_end_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.window_end_edit.setStyleSheet(self.get_input_style())
+
+        window_row.addWidget(self.window_start_label)
+        window_row.addWidget(self.window_start_edit)
+        window_row.addWidget(self.window_end_label)
         window_row.addWidget(self.window_end_edit)
 
         input_layout.addLayout(window_row)
 
-        # BE描述多行文本框
+        # BE描述
         self.be_desc_edit = QTextEdit()
-        self.be_desc_edit.setPlaceholderText("Enter BE description here...")
-        self.be_desc_edit.setStyleSheet(self.get_input_style())
-        self.be_desc_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.be_desc_edit.setMinimumHeight(100)  # 设置最小高度
-        self.add_input_row(input_layout, "BE Desc:", self.be_desc_edit, label_width=130)
+        self.be_desc_edit.setPlaceholderText("Enter BE description...")
+        self.be_desc_edit.setMinimumHeight(80)
+        self.add_input_row(input_layout, "BE Desc:", self.be_desc_edit, label_width=90)
 
-        # 提交按钮
+        # 提交按钮 - 使用水平布局实现居中
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(0)
+
         submit_btn = QPushButton("SUBMIT")
         submit_btn.setStyleSheet("""
             QPushButton {
                 background: #007bff;
-                color: #fff;
-                border: none;
-                padding: 6px 12px;
+                color: white;
+                padding: 5px 20px;
                 border-radius: 3px;
                 font-size: 12px;
             }
             QPushButton:hover {
+                background: #0069d9;
+            }
+            QPushButton:pressed {
                 background: #0056b3;
             }
         """)
-        submit_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        submit_btn.clicked.connect(self.simulate_submit)
-        input_layout.addWidget(submit_btn, alignment=Qt.AlignCenter)
+        submit_btn.setFixedHeight(28)
 
+        # 绑定按钮点击事件
+        submit_btn.clicked.connect(self.submit_data)
+
+        # 使用伸缩项使按钮居中
+        button_layout.addStretch(1)
+        button_layout.addWidget(submit_btn)
+        button_layout.addStretch(1)
+
+        input_layout.addLayout(button_layout)
+
+        # 组合布局
+        main_layout.addWidget(display_frame)
         main_layout.addWidget(input_frame)
 
+    def add_input_row(self, parent_layout, label_text, widget, label_width=90):
+        """通用输入行添加方法"""
+        row = QHBoxLayout()
+        row.setSpacing(8)
 
-
-
-
-        scroll_area.setWidget(content_widget)
-
-        # 确保只设置一次布局
-        if not self.layout():
-            page_layout = QVBoxLayout(self)
-            page_layout.setContentsMargins(0, 0, 0, 0)
-            page_layout.addWidget(scroll_area)
-
-    def add_input_row(self, parent_layout, label_text, widget, label_width=110):
-        """通用添加输入行方法，支持自定义标签宽度"""
-        row_layout = QHBoxLayout()
         label = QLabel(label_text)
-        label.setStyleSheet("color: #555; border: none;")
         label.setFixedWidth(label_width)
-        row_layout.addWidget(label)
+        label.setStyleSheet(self.get_label_style())
 
         widget.setStyleSheet(self.get_input_style())
-        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        row_layout.addWidget(widget)
-        parent_layout.addLayout(row_layout)
+
+        row.addWidget(label)
+        row.addWidget(widget)
+        parent_layout.addLayout(row)
 
     def get_input_style(self):
-        # 保持与SgRNADesignPage一致的样式
+        """统一输入控件样式（包括边框）"""
         return """
-            QLineEdit, QComboBox, QTextEdit {
+            QLineEdit, QTextEdit {
                 border: 1px solid #ddd;
                 border-radius: 2px;
                 padding: 3px 5px;
                 background: #ffffff;
-                color: #000;
-                min-height: 24px;
+                color: #333;
                 font-size: 12px;
             }
-            QLineEdit:focus, QComboBox:focus, QTextEdit:focus {
+            QLineEdit:focus, QTextEdit:focus {
                 border-color: #007bff;
-                color: #000;
             }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border-left-width: 1px;
-                border-left-color: #ddd;
-                border-left-style: solid;
-                border-top-right-radius: 2px;
-                border-bottom-right-radius: 2px;
-            }
-            QComboBox::down-arrow {
-                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHBhdGggZmlsbD0iIzAwMCIgZD0iTTE1LjUsNC41TDgsMTJsLTcuNS03LjVMMywzbDUsNWw1LTUgWiIvPjwvc3ZnPg==);
-                width: 10px;
-                height: 10px;
-                margin-right: 4px;
-            }
-            QComboBox QAbstractItemView {
-                border: 1px solid #ddd;
-                selection-background-color: #e0e0e0;
-                selection-color: #000;
-                color: #000;
-                background-color: #ffffff;
-                padding: 2px;
+        """
+
+    def get_label_style(self):
+        """统一标签样式（无边框）"""
+        return """
+            QLabel {
+                color: #333;
                 font-size: 12px;
+                border: none;
             }
         """
 
     def toggle_other_be(self):
-        """切换Other BE时显示/隐藏额外输入"""
-        if self.editor_combo.currentText() == "Other BE":
-            self.target_base_label.setHidden(False)
-            self.conv_base_label.setHidden(False)
-            self.target_base_edit.setHidden(False)
-            self.conv_base_edit.setHidden(False)
-        else:
-            self.target_base_label.setHidden(True)
-            self.conv_base_label.setHidden(True)
-            self.target_base_edit.setHidden(True)
-            self.conv_base_edit.setHidden(True)
+        """切换Other BE时显示碱基输入框"""
+        show = self.editor_combo.currentText() == "Other BE"
+        self.target_base_label.setHidden(not show)
+        self.target_base_edit.setHidden(not show)
+        self.conv_base_label.setHidden(not show)
+        self.conv_base_edit.setHidden(not show)
 
-    def simulate_submit(self):
-        """模拟提交逻辑，生成并显示模拟数据"""
-        be_name = self.be_name_edit.text().strip()
-        editor_type = self.editor_combo.currentText()
-        window_start = self.window_start_edit.text().strip()
-        window_end = self.window_end_edit.text().strip()
-        target_base = self.target_base_edit.text().strip() if editor_type == "Other BE" else ""
-        conv_base = self.conv_base_edit.text().strip() if editor_type == "Other BE" else ""
-        be_desc = self.be_desc_edit.toPlainText().strip()
-
-        # 校验必填字段
-        if not all([be_name, editor_type, window_start, window_end, be_desc]):
-            QMessageBox.warning(self, "输入缺失", "请填写所有必填字段")
-            return
-
-        # 校验数字字段
+    def load_from_json(self):
+        """从JSON文件加载BE信息"""
         try:
-            window_start = int(window_start)
-            window_end = int(window_end)
-            if window_start >= window_end or window_start < 1 or window_end < 1:
-                raise ValueError
-        except ValueError:
-            QMessageBox.warning(self, "参数错误", "窗口范围必须为有效整数且Start < End")
-            return
+            with open(JSON_PATH, "r") as f:
+                self.be_data = json.load(f)
+        except FileNotFoundError:
+            self.be_data = []
 
-        # 生成模拟数据
-        mock_data = [
-            [be_name, editor_type, f"{window_start}-{window_end}", target_base, conv_base, be_desc],
-            ["编辑效率", "85%", "PAM 要求", "NGG", "Off-target", "低"],
-            ["活性窗口", "4-8nt", "温度适应性", "37°C", "pH 范围", "7.0-8.0"],
-            ["递送方式", "RNP", "表达系统", "哺乳动物", "研发状态", "已验证"]
-        ]
+    def save_to_json(self):
+        """将BE信息保存到JSON文件"""
+        with open(JSON_PATH, "w") as f:
+            json.dump(self.be_data, f, indent=2)
 
-        # 清空旧结果
+    def update_display(self):
+        """更新BE信息展示"""
         while self.result_layout.count() > 0:
             item = self.result_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
 
-        # 结果展示
-        headers = ["属性", "详情", "属性", "详情", "属性", "详情"]
-        header_label = QLabel(" | ".join([f"{h}: {v}" for h, v in zip(headers, mock_data[0])]))
-        header_label.setStyleSheet("""
-            QLabel {
-                color: #333;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 6px 8px;
-                border-bottom: 1px solid #ccc;
-                background-color: #f5f5f5;
-            }
-        """)
-        header_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        header_label.setWordWrap(True)
-        self.result_layout.addWidget(header_label)
+        for idx, data in enumerate(self.be_data, 1):
+            line_text = f"BE #{idx}: {data['BE name']} | " \
+                        f"Start: {data['start']} | End: {data['end']} | " \
+                        f"Target: {data['target base'] or 'N/A'} → {data['converted base'] or 'N/A'}"
 
-        # 添加分隔线
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        self.result_layout.addWidget(line)
+            # 创建水平布局，包含标签和删除按钮
+            item_layout = QHBoxLayout()
 
-        # 展示其余数据
-        for i, row in enumerate(mock_data[1:], start=1):
-            line_text = " | ".join([f"{h}: {v}" for h, v in zip(headers, row)])
-            line_label = QLabel(line_text)
-            line_label.setStyleSheet(f"""
+            label = QLabel(line_text)
+            label.setStyleSheet(f"""
                 QLabel {{
                     color: #333;
-                    font-size: 12px;
-                    padding: 4px 8px;
-                    border-bottom: 1px solid #eee;
-                    background-color: {"#fafafa" if i % 2 == 0 else "#fff"};
-                }}
-                QLabel:hover {{
-                    background-color: #f0f0f0;
+                    font-size: 11px;
+                    padding: 3px 6px;
+                    background-color: {"#f9f9f9" if idx % 2 == 0 else "#fff"};
                 }}
             """)
-            line_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            line_label.setWordWrap(True)
-            self.result_layout.addWidget(line_label)
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setWordWrap(True)
 
-        # 添加成功消息
-        success_label = QLabel("✓ BE 信息已成功添加到库中!")
-        success_label.setStyleSheet("""
-            QLabel {
-                color: #28a745;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 6px 8px;
-                border-top: 1px solid #ccc;
-                background-color: #f0f8f2;
-            }
-        """)
-        success_label.setAlignment(Qt.AlignCenter)
-        self.result_layout.addWidget(success_label)
+            delete_btn = QPushButton("DELETE")
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background: #dc3545;
+                    color: white;
+                    padding: 2px 8px;
+                    border-radius: 2px;
+                    font-size: 10px;
+                    margin: 2px;
+                }
+                QPushButton:hover {
+                    background: #c82333;
+                }
+                QPushButton:pressed {
+                    background: #bd2130;
+                }
+            """)
+            delete_btn.setFixedHeight(20)
+            delete_btn.setFixedWidth(70)
 
+            # 使用lambda传递当前索引，并捕获idx参数
+            delete_btn.clicked.connect(lambda checked, i=idx - 1: self.delete_be(i))
+
+            item_layout.addWidget(label, 1)  # 标签占据大部分空间
+            item_layout.addWidget(delete_btn)
+
+            # 创建一个框架来包含整行，添加底部边框
+            row_frame = QFrame()
+            row_frame.setLayout(item_layout)
+            row_frame.setStyleSheet("QFrame { border-bottom: 1px solid #eee; }")
+
+            self.result_layout.addWidget(row_frame)
+
+    def delete_be(self, index):
+        """删除指定索引的BE信息"""
+        # 确认对话框
+        reply = QMessageBox.question(
+            self, "Confirm Deletion",
+            f"Are you sure you want to delete BE #{index + 1}: {self.be_data[index]['BE name']}?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # 从列表中删除
+            del self.be_data[index]
+            # 保存到JSON文件
+            self.save_to_json()
+            # 更新显示
+            self.update_display()
+            # 显示成功消息
+            QMessageBox.information(self, "Success", "BE information deleted successfully!")
+
+    def submit_data(self):
+        """处理提交数据"""
+        # 校验BE名称
+        be_name = self.be_name_edit.text().strip()
+        if not be_name:
+            QMessageBox.warning(self, "Input Error", "Please enter a BE name!")
+            return
+
+        # 校验起始位置
+        try:
+            start = int(self.window_start_edit.text())
+        except ValueError:
+            QMessageBox.warning(self, "Input Error", "Window Start must be an integer!")
+            return
+
+        # 校验结束位置
+        try:
+            end = int(self.window_end_edit.text())
+        except ValueError:
+            QMessageBox.warning(self, "Input Error", "Window End must be an integer!")
+            return
+
+        # 校验起始和结束位置关系
+        if start >= end:
+            QMessageBox.warning(self, "Input Error", "Window Start must be less than Window End!")
+            return
+
+        # 获取碱基转换信息
+        editor_type = self.editor_combo.currentText()
+        if editor_type == "Other BE":
+            target_base = self.target_base_edit.text().strip()
+            converted_base = self.conv_base_edit.text().strip()
+            if not target_base or not converted_base:
+                QMessageBox.warning(self, "Input Error", "Target Base and Converted Base are required for Other BE!")
+                return
+        else:
+            # 根据编辑器类型自动设置碱基转换
+            target_base = "A" if editor_type == "ABE" else "C"
+            converted_base = "G" if editor_type == "ABE" else "T"
+
+        # 获取描述信息
+        be_desc = self.be_desc_edit.toPlainText().strip()
+        if not be_desc:
+            QMessageBox.warning(self, "Input Error", "Please enter a BE description!")
+            return
+
+        # 创建新数据对象
+        new_data = {
+            "BE name": be_name,
+            "start": start,
+            "end": end,
+            "target base": target_base,
+            "converted base": converted_base,
+            "be desc": be_desc
+        }
+
+        # 添加到数据列表并保存
+        self.be_data.append(new_data)
+        self.save_to_json()
+        self.update_display()
+        self.clear_inputs()
+
+        # 显示成功消息
+        QMessageBox.information(self, "Success", "BE information added successfully!")
+
+    def clear_inputs(self):
+        """清空输入框"""
+        for widget in [self.be_name_edit, self.window_start_edit, self.window_end_edit,
+                       self.target_base_edit, self.conv_base_edit, self.be_desc_edit]:
+            if isinstance(widget, QLineEdit):
+                widget.clear()
+            elif isinstance(widget, QTextEdit):
+                widget.setPlainText("")
+        self.editor_combo.setCurrentIndex(0)
+        self.toggle_other_be()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = BELibPage()
+    window.setWindowTitle("BE Library Manager")
+    window.setGeometry(100, 100, 700, 500)
     window.show()
     sys.exit(app.exec_())

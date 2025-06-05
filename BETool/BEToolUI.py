@@ -94,10 +94,10 @@ class BEToolUI(QWidget):
 
         main_layout.addWidget(self.main_tab_widget)
         # 加载自定义图标示例
-        home_icon = QIcon(QPixmap(get_resource_path("../resources/home.png")))
-        design_icon = QIcon(QPixmap(get_resource_path("../resources/sgrna.png")))
-        editor_icon = QIcon(QPixmap(get_resource_path("../resources/editor.png")))
-        library_icon = QIcon(QPixmap(get_resource_path("../resources/library.png")))
+        home_icon = QIcon(QPixmap(get_resource_path("../../../resources/home.png")))
+        design_icon = QIcon(QPixmap(get_resource_path("../../../resources/sgrna.png")))
+        editor_icon = QIcon(QPixmap(get_resource_path("../../../resources/editor.png")))
+        library_icon = QIcon(QPixmap(get_resource_path("../../../resources/library.png")))
 
 
 
@@ -135,7 +135,7 @@ class BEToolUI(QWidget):
         self.main_tab_widget.addTab(tab4, library_icon, "BE Lib")
 
         # 加载背景图片
-        image_path = get_resource_path("../resources/background.png")
+        image_path = get_resource_path("../../../resources/background.png")
         self.original_pixmap = QPixmap(image_path)
 
         if not self.original_pixmap.isNull():

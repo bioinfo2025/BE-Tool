@@ -26,7 +26,7 @@ class HomePage(QWidget):
         self.setContentsMargins(0, 0, 0, 0)
 
         # 加载背景图片
-        image_path = get_resource_path("../resources/BASE-CRISPR.png")
+        image_path = get_resource_path("../../../resources/BASE-CRISPR.png")
         self.original_pixmap = QPixmap(image_path)
 
         if not self.original_pixmap.isNull():
